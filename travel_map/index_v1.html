@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baidu Map Route Planner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f6f7fb; color: #1f2a44; }
+    header { padding: 12px 16px; background: #0b82ff; color: #fff; }
+    header h1 { margin: 0 0 4px; font-size: 20px; }
+    header p { margin: 0; font-size: 13px; opacity: 0.9; }
+    #controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; background: #fff; align-items: center; border-bottom: 1px solid #e4e7ef; }
+    button { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.primary { background: #0b82ff; color: #fff; }
+    button.secondary { background: #eef2f8; color: #1f2a44; }
+    button.danger { background: #ff4d4f; color: #fff; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; padding: 12px; height: calc(100vh - 110px); }
+    #sidebar { background: #fff; border: 1px solid #e4e7ef; border-radius: 10px; padding: 12px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    #map { border: 1px solid #e4e7ef; border-radius: 10px; height: 100%; }
+    h2 { margin: 0; font-size: 16px; }
+    ol, ul { margin: 0 0 0 18px; padding: 0; font-size: 13px; color: #4c5977; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 6px 4px; border-bottom: 1px solid #e9ecf3; text-align: left; }
+    .pill { display: inline-block; padding: 3px 7px; border-radius: 12px; background: #eef2f8; font-size: 12px; margin-right: 6px; color: #1f2a44; }
+    .route-metrics { background: #f1f6ff; border: 1px solid #d6e7ff; border-radius: 8px; padding: 8px; font-size: 13px; }
+    @media (max-width: 900px) {
+      #layout { grid-template-columns: 1fr; height: auto; }
+      #map { height: 60vh; }
+    }
+  </style>
+  <!-- Replace YOUR_BAIDU_MAP_AK with your actual AK -->
+  <script src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_BAIDU_MAP_AKcallback=initMap" defer></script>
+</head>
+<body>
+  <header>
+    <h1>City Day Route Planner</h1>
+    <p>Click on the map to drop places (up to ~10). Compute the shortest loop to visit them all.</p>
+  </header>
+  <section id="controls">
+    <button class="primary" id="computeBtn" disabled>Start Calculation</button>
+    <button class="secondary" id="undoBtn" disabled>Undo Last Point</button>
+    <button class="danger" id="clearBtn" disabled>Clear Points</button>
+    <span style="font-size: 13px; color: #4c5977;">Tip: drag the map to position, then click to add stops.</span>
+  </section>
+
+  <section id="layout">
+    <aside id="sidebar">
+      <div>
+        <h2>Steps</h2>
+        <ol>
+          <li>Pan/zoom to your city.</li>
+          <li>Click to add each place to visit.</li>
+          <li>Press “Start Calculation” to compute the optimal loop.</li>
+        </ol>
+      </div>
+      <div>
+        <h2>Selected Points</h2>
+        <table id="pointsTable">
+          <thead>
+            <tr><th>#</th><th>Lng</th><th>Lat</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div>
+        <h2>Route</h2>
+        <div id="routeInfo" class="route-metrics">Add 2+ points to see the route.</div>
+      </div>
+    </aside>
+    <div id="map"></div>
+  </section>
+
+  <script>
+    function initMap() {
+      if (!window.BMap) {
+        alert('地图脚本未加载，请检查 AK 或网络。');
+        return;
+      }
+
+      // Basic map setup
+      const map = new BMap.Map('map');
+      map.centerAndZoom(new BMap.Point(121.4737, 31.2304), 12); // Default Shanghai center
+      map.enableScrollWheelZoom(true);
+      const defaultCity = '上海市';
+
+      const points = [];
+      const markers = [];
+      let polyline = null;
+      const routeSegments = [];
+
+      const computeBtn = document.getElementById('computeBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const undoBtn = document.getElementById('undoBtn');
+      const pointsTableBody = document.querySelector('#pointsTable tbody');
+      const routeInfo = document.getElementById('routeInfo');
+
+      map.addEventListener('click', (e) => addPoint(e.point));
+
+      computeBtn.addEventListener('click', () => {
+        if (points.length < 2) return;
+        runRoute();
+      });
+
+      clearBtn.addEventListener('click', clearAll);
+      undoBtn.addEventListener('click', undoLast);
+
+      function addPoint(point) {
+        if (points.length >= 15) {
+          alert('Limit to 15 points to keep calculation fast.');
+          return;
+        }
+        points.push(point);
+        const marker = new BMap.Marker(point, { title: `Stop ${points.length}` });
+        const label = new BMap.Label(`${points.length}`, { offset: new BMap.Size(12, -12) });
+        marker.setLabel(label);
+        map.addOverlay(marker);
+        markers.push(marker);
+        updateTable();
+        syncButtons();
+      }
+
+      function undoLast() {
+        const marker = markers.pop();
+        if (marker) map.removeOverlay(marker);
+        points.pop();
+        updateLabels();
+        updateTable();
+        syncButtons();
+        clearRoute();
+      }
+
+      function clearAll() {
+        markers.forEach(m => map.removeOverlay(m));
+        markers.length = 0;
+        points.length = 0;
+        updateTable();
+        syncButtons();
+        clearRoute();
+      }
+
+      function updateLabels() {
+        markers.forEach((marker, idx) => {
+          marker.setLabel(new BMap.Label(`${idx + 1}`, { offset: new BMap.Size(12, -12) }));
+        });
+      }
+
+      function updateTable() {
+        pointsTableBody.innerHTML = '';
+        points.forEach((p, idx) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${idx + 1}</td><td>${p.lng.toFixed(6)}</td><td>${p.lat.toFixed(6)}</td>`;
+          pointsTableBody.appendChild(row);
+        });
+      }
+
+      function syncButtons() {
+        const hasPoints = points.length > 0;
+        computeBtn.disabled = points.length < 2;
+        clearBtn.disabled = !hasPoints;
+        undoBtn.disabled = !hasPoints;
+      }
+
+      function clearRoute() {
+        if (polyline) { map.removeOverlay(polyline); polyline = null; }
+        if (routeSegments.length) {
+          routeSegments.forEach(seg => map.removeOverlay(seg));
+          routeSegments.length = 0;
+        }
+        if (points.length < 2) {
+          routeInfo.textContent = 'Add 2+ points to see the route.';
+        }
+      }
+
+      async function runRoute() {
+        computeBtn.disabled = true;
+        computeBtn.textContent = 'Calculating...';
+        routeInfo.textContent = 'Calculating subway routes...';
+        clearRoute();
+        try {
+          const dist = await buildDistanceMatrix(points);
+          const { order, length } = solveTSP(dist);
+          routeInfo.textContent = 'Fetching subway polylines...';
+          await drawRoute(order);
+          routeInfo.textContent = `Stops: ${order.length} | Total subway distance: ${length.toFixed(0)} m`;
+        } catch (err) {
+          console.error(err);
+          routeInfo.textContent = 'Failed to compute route. Please retry.';
+          alert('计算路线失败，请重试或稍后再试。');
+        } finally {
+          computeBtn.disabled = points.length < 2;
+          computeBtn.textContent = 'Start Calculation';
+        }
+      }
+
+      // Build pairwise transit (subway-first) distance matrix
+      async function buildDistanceMatrix(pointsArr) {
+        const n = pointsArr.length;
+        const dist = Array.from({ length: n }, () => Array(n).fill(0));
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const d = await fetchTransitDistance(pointsArr[i], pointsArr[j]);
+            dist[i][j] = dist[j][i] = d;
+          }
+        }
+        return dist;
+      }
+
+      function fetchTransitDistance(start, end) {
+        return new Promise((resolve, reject) => {
+          const transit = new BMap.TransitRoute(map, {
+            renderOptions: { map: null, autoViewport: false },
+            policy: BMAP_TRANSIT_POLICY_LEAST_TIME,
+            transitType: BMAP_TRANSIT_POLICY_FIRST_SUBWAYS,
+            onSearchComplete: (res) => {
+              if (transit.getStatus() === 0) {
+                const plan = res.getPlan(0);
+                const distance = plan.getDistance(false); // meters
+                resolve(distance);
+              } else {
+                reject(new Error('Transit search failed'));
+              }
+            },
+            onMarkersSet: () => {},
+            onPolylinesSet: () => {}
+          });
+          transit.search(start, end, { city: defaultCity });
+        });
+      }
+
+      // Held-Karp exact TSP for up to ~10-12 points
+      function solveTSP(dist) {
+        const n = dist.length;
+        const size = 1 << n;
+        const dp = Array.from({ length: size }, () => Array(n).fill(null));
+        dp[1][0] = { cost: 0, prev: -1 }; // start at node 0
+
+        for (let mask = 1; mask < size; mask++) {
+          if (!(mask & 1)) continue;
+          for (let j = 0; j < n; j++) {
+            if (!(mask & (1 << j)) || dp[mask][j] === null) continue;
+            for (let k = 1; k < n; k++) {
+              if (mask & (1 << k)) continue;
+              const nextMask = mask | (1 << k);
+              const nextCost = dp[mask][j].cost + dist[j][k];
+              if (!dp[nextMask][k] || nextCost < dp[nextMask][k].cost) {
+                dp[nextMask][k] = { cost: nextCost, prev: j };
+              }
+            }
+          }
+        }
+
+        const fullMask = size - 1;
+        let bestCost = Infinity;
+        let bestEnd = -1;
+        for (let i = 1; i < n; i++) {
+          const entry = dp[fullMask][i];
+          if (!entry) continue;
+          const total = entry.cost + dist[i][0];
+          if (total < bestCost) {
+            bestCost = total;
+            bestEnd = i;
+          }
+        }
+
+        const order = [];
+        let mask = fullMask;
+        let end = bestEnd;
+        order.push(0);
+        const reversed = [];
+        while (end !== -1 && end !== 0) {
+          reversed.push(end);
+          const prev = dp[mask][end].prev;
+          mask = mask ^ (1 << end);
+          end = prev;
+        }
+        reversed.reverse().forEach(i => order.push(i));
+
+        return { order, length: bestCost };
+      }
+
+      async function drawRoute(order) {
+        clearRoute();
+        for (let i = 0; i < order.length; i++) {
+          const current = order[i];
+          const next = order[(i + 1) % order.length];
+          const seg = await fetchPolyline(points[current], points[next]);
+          if (seg) {
+            const poly = new BMap.Polyline(seg, {
+              strokeColor: '#0b82ff',
+              strokeWeight: 4,
+              strokeOpacity: 0.85
+            });
+            map.addOverlay(poly);
+            routeSegments.push(poly);
+          }
+        }
+      }
+
+      function fetchPolyline(start, end) {
+        return new Promise((resolve, reject) => {
+          const transit = new BMap.TransitRoute(map, {
+            renderOptions: { map: null, autoViewport: false },
+            policy: BMAP_TRANSIT_POLICY_LEAST_TIME,
+            transitType: BMAP_TRANSIT_POLICY_FIRST_SUBWAYS,
+            onSearchComplete: (res) => {
+              if (transit.getStatus() === 0) {
+                const plan = res.getPlan(0);
+                const route = plan.getRoute(0);
+                if (route) {
+                  const pts = route.getPath();
+                  resolve(pts);
+                } else {
+                  reject(new Error('No transit route'));
+                }
+              } else {
+                reject(new Error('Transit polyline failed'));
+              }
+            },
+            onMarkersSet: () => {},
+            onPolylinesSet: () => {}
+          });
+          transit.search(start, end, { city: defaultCity });
+        });
+      }
+    }
+  </script>
+</body>
+</html>

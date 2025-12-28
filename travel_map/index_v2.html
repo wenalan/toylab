@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上海公交景点一键路线规划</title>
+    <style>
+        :root {
+            --deep-blue: #0c1b33;
+            --bright-mint: #26c6da;
+            --sunrise: #ffb74d;
+            --slate: #30475e;
+            --card: #0f243f;
+            --text: #e8f0ff;
+            --muted: #9fb3c8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Space Grotesk", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background: radial-gradient(120% 120% at 20% 20%, rgba(38, 198, 218, 0.15), transparent 40%), #0a1527;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            height: 100vh;
+        }
+
+        header {
+            grid-column: 1 / span 2;
+            padding: 18px 26px;
+            background: linear-gradient(135deg, rgba(38, 198, 218, 0.2), rgba(255, 183, 77, 0.2));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .subtitle {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, rgba(15, 36, 63, 0.92), rgba(13, 28, 49, 0.88));
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 18px 20px;
+            overflow-y: auto;
+        }
+
+        .map-area {
+            position: relative;
+            background: #0b172b;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        .card h3 {
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+            color: #cfe8ff;
+        }
+
+        .card p, .card li {
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.55;
+        }
+
+        .card ol {
+            padding-left: 18px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            color: #0a1527;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .btn + .btn {
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #26c6da, #22a5c4);
+            box-shadow: 0 10px 20px rgba(38, 198, 218, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffb74d, #ff9f1c);
+            box-shadow: 0 10px 20px rgba(255, 183, 77, 0.22);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .list {
+            list-style: none;
+            margin-top: 8px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            background: rgba(38, 198, 218, 0.16);
+            color: #7ce8f4;
+            border: 1px solid rgba(38, 198, 218, 0.35);
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 0.82rem;
+        }
+
+        .delete {
+            background: none;
+            border: none;
+            color: #ff8a80;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 10px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 1.2rem;
+            color: #ffffff;
+        }
+
+        .steps {
+            margin-top: 8px;
+        }
+
+        .step {
+            padding: 10px 12px;
+            border-left: 3px solid #26c6da;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .step-title {
+            font-weight: 700;
+        }
+
+        .step-detail {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 0.9rem;
+        }
+
+        .status {
+            margin-top: 6px;
+            color: #9be7ff;
+            font-size: 0.9rem;
+        }
+
+        .path-legend {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .path-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        .path-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        
+        .path-color-1 { background: #FF5252; }
+        .path-color-2 { background: #4CAF50; }
+        .path-color-3 { background: #2196F3; }
+        .path-color-4 { background: #FF9800; }
+        .path-color-5 { background: #9C27B0; }
+        .path-color-6 { background: #00BCD4; }
+        
+        .analysis-btn {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: rgba(102, 187, 106, 0.2);
+            color: #a5d6a7;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.01em;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(102, 187, 106, 0.3);
+            margin-top: 8px;
+        }
+        
+        .analysis-btn:hover {
+            background: rgba(102, 187, 106, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .analysis-btn:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--muted);
+            border-color: rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .message-box {
+            background: linear-gradient(180deg, #0f243f, #0a1a30);
+            border: 1px solid rgba(38, 198, 218, 0.3);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 800px;
+            max-height: 80vh;
+            width: 90%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .message-title {
+            font-size: 1.2rem;
+            color: #e8f0ff;
+            font-weight: 700;
+        }
+        
+        .message-close {
+            background: none;
+            border: none;
+            color: #ff8a80;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        
+        .message-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .message-content {
+            overflow-y: auto;
+            max-height: 60vh;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .comparison-table th {
+            background: rgba(38, 198, 218, 0.2);
+            color: #7ce8f4;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 700;
+            border-bottom: 2px solid rgba(38, 198, 218, 0.3);
+        }
+        
+        .comparison-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .comparison-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .best-route {
+            background: rgba(102, 187, 106, 0.15) !important;
+            border-left: 4px solid #66bb6a;
+        }
+        
+        .best-route:hover {
+            background: rgba(102, 187, 106, 0.25) !important;
+        }
+        
+        .start-index {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: rgba(38, 198, 218, 0.2);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 8px;
+            font-weight: 700;
+        }
+        
+        .route-sequence {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        
+        .distance-cell {
+            color: #ffb74d;
+            font-weight: 700;
+        }
+        
+        .time-cell {
+            color: #26c6da;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1024px) {
+            .app-shell {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            header {
+                grid-column: 1;
+            }
+
+            .sidebar {
+                height: 50vh;
+            }
+
+            .map-area {
+                height: 60vh;
+            }
+            
+            .message-box {
+                max-width: 95%;
+                padding: 16px;
+            }
+            
+            .comparison-table th,
+            .comparison-table td {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+    <script src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_BAIDU_MAP_AK"></script>
+</head>
+<body>
+    <div class="app-shell">
+        <header>
+            <h1>上海公交景点一键路线规划</h1>
+            <div class="subtitle">点击地图收集景点，自动给出最短公交游览顺序，起点为自动选择的最优起始点</div>
+        </header>
+
+        <div class="sidebar">
+            <div class="card">
+                <h3>使用方式</h3>
+                <ol>
+                    <li>直接在地图上点击添加景点</li>
+                    <li>收集完毕后点击「计算最短路线」，自动按最短距离排序。</li>
+                    <li>系统将使用上海公交/地铁规划每一段出行，并在地图展示轨迹。</li>
+                </ol>
+                <button class="analysis-btn" id="showAnalysisBtn" disabled>
+                    查看起点分析比较
+                </button>
+                <div class="path-legend">
+                    <div class="path-label">
+                        <span class="path-color path-color-1"></span>
+                        <span>第1段</span>
+                    </div>
+                    <div class="path-label">
+                        <span class="path-color path-color-2"></span>
+                        <span>第2段</span>
+                    </div>
+                    <div class="path-label">
+                        <span class="path-color path-color-3"></span>
+                        <span>第3段</span>
+                    </div>
+                    <div class="path-label">
+                        <span class="path-color path-color-4"></span>
+                        <span>第4段</span>
+                    </div>
+                </div>
+                <p class="status" id="statusText">点击地图添加景点，右键点击列表中的景点可修改名称。</p>
+            </div>
+
+            <div class="card">
+                <h3>操作</h3>
+                <button class="btn btn-secondary" id="calcRoute">计算最短路线</button>
+                <button class="btn btn-ghost" id="clearAll">清空地点</button>
+            </div>
+
+            <div class="card">
+                <h3>我的景点 <span class="badge" id="spotCount">0</span></h3>
+                <ul class="list" id="spotList">
+                    <li class="list-item" style="justify-content:center;color:var(--muted);">点击地图添加景点</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>路线安排</h3>
+                <div class="stats">
+                    <div class="stat">
+                        <strong id="statDistance">0 km</strong>
+                        <span>总距离</span>
+                    </div>
+                    <div class="stat">
+                        <strong id="statTime">0 min</strong>
+                        <span>预计时长</span>
+                    </div>
+                    <div class="stat">
+                        <strong id="statLegs">0 段</strong>
+                        <span>公交段数</span>
+                    </div>
+                </div>
+                <div class="steps" id="routeSteps">
+                    <div class="step">
+                        <div class="step-title">等待规划</div>
+                        <div class="step-detail">添加景点后点击计算，即可生成公交路线。</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-area">
+            <div id="map"></div>
+        </div>
+    </div>
+    
+    <div class="message-overlay" id="messageOverlay">
+        <div class="message-box">
+            <div class="message-header">
+                <div class="message-title">起点比较分析</div>
+                <button class="message-close" id="messageClose">&times;</button>
+            </div>
+            <div class="message-content" id="messageContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const startCity = "上海";
+        let map;
+        let isPicking = true;
+        let userSpots = [];
+        let spotMarkers = [];
+        let routeOverlays = [];
+        let allStartOptions = [];
+        let spotCounter = 1;
+        let hasCalculated = false;
+        let actualTransitResults = {};
+        let distanceCache = {};
+
+        function initMap() {
+            map = new BMap.Map("map");
+            const center = new BMap.Point(121.475, 31.228);
+            map.centerAndZoom(center, 13);
+            map.enableScrollWheelZoom(true);
+            map.addControl(new BMap.NavigationControl());
+            map.addControl(new BMap.ScaleControl());
+
+            map.addEventListener("click", (e) => {
+                if (!isPicking) return;
+                
+                const defaultName = `景点${spotCounter}`;
+                spotCounter++;
+                
+                addSpot({ 
+                    name: defaultName, 
+                    lng: e.point.lng, 
+                    lat: e.point.lat 
+                });
+                
+                document.getElementById("statusText").textContent = `已添加"${defaultName}"，右键点击列表中的景点可修改名称。`;
+            });
+        }
+
+        function addSpot(spot) {
+            const full = { 
+                ...spot, 
+                id: Date.now() + Math.random(),
+                canRename: true
+            };
+            userSpots.push(full);
+            renderSpots();
+            placeSpotMarker(full);
+        }
+
+        function placeSpotMarker(spot) {
+            const point = new BMap.Point(spot.lng, spot.lat);
+            
+            const marker = new BMap.Marker(point, {
+                icon: new BMap.Symbol(BMap_Symbol_SHAPE_CIRCLE, {
+                    scale: 8,
+                    fillColor: "#FF5252",
+                    fillOpacity: 0.9,
+                    strokeColor: "#FFFFFF",
+                    strokeWeight: 2
+                })
+            });
+            
+            const label = new BMap.Label(spot.name, { 
+                position: point, 
+                offset: new BMap.Size(16, -6) 
+            });
+            label.setStyle({
+                color: "#FFFFFF",
+                backgroundColor: "rgba(255, 82, 82, 0.8)",
+                border: "2px solid #FFFFFF",
+                borderRadius: "4px",
+                padding: "2px 6px",
+                fontSize: "12px",
+                fontWeight: "bold"
+            });
+            
+            map.addOverlay(marker);
+            map.addOverlay(label);
+            spotMarkers.push(marker, label);
+        }
+
+        function renderSpots() {
+            const list = document.getElementById("spotList");
+            const count = document.getElementById("spotCount");
+            count.textContent = userSpots.length;
+
+            if (userSpots.length === 0) {
+                list.innerHTML = '<li class="list-item" style="justify-content:center;color:var(--muted);">点击地图添加景点</li>';
+                document.getElementById("statusText").textContent = "点击地图添加景点，右键点击列表中的景点可修改名称。";
+                document.getElementById("showAnalysisBtn").disabled = true;
+                return;
+            }
+
+            list.innerHTML = "";
+            userSpots.forEach((spot, idx) => {
+                const li = document.createElement("li");
+                li.className = "list-item";
+                li.innerHTML = `
+                    <div>
+                        <div style="font-weight:700;">${idx + 1}. ${spot.name}</div>
+                        <div style="color:var(--muted);font-size:0.85rem;">(${spot.lng.toFixed(4)}, ${spot.lat.toFixed(4)})</div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="rename-btn" title="重命名" data-id="${spot.id}" style="background:none;border:none;color:#26c6da;cursor:pointer;font-size:0.9rem;">✎</button>
+                        <button class="delete" title="删除" data-id="${spot.id}">×</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+
+            list.querySelectorAll(".delete").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const id = btn.getAttribute("data-id");
+                    userSpots = userSpots.filter(s => s.id != id);
+                    resetSpotMarkers();
+                    userSpots.forEach(placeSpotMarker);
+                    renderSpots();
+                    hasCalculated = false;
+                    document.getElementById("showAnalysisBtn").disabled = true;
+                });
+            });
+            
+            list.querySelectorAll(".rename-btn").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const id = btn.getAttribute("data-id");
+                    renameSpot(id);
+                });
+            });
+            
+            list.querySelectorAll(".list-item").forEach((item, index) => {
+                item.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    const id = userSpots[index].id;
+                    renameSpot(id);
+                });
+                
+                item.addEventListener("dblclick", (e) => {
+                    e.preventDefault();
+                    const id = userSpots[index].id;
+                    renameSpot(id);
+                });
+            });
+            
+            if (hasCalculated && allStartOptions.length > 0) {
+                document.getElementById("showAnalysisBtn").disabled = false;
+            } else {
+                document.getElementById("showAnalysisBtn").disabled = true;
+            }
+            
+            document.getElementById("statusText").textContent = `已添加 ${userSpots.length} 个景点，点击"计算最短路线"开始规划。`;
+        }
+
+        function renameSpot(spotId) {
+            const spot = userSpots.find(s => s.id == spotId);
+            if (!spot) return;
+            
+            const newName = prompt("请输入新的景点名称：", spot.name);
+            if (newName !== null && newName.trim() !== "") {
+                spot.name = newName.trim();
+                resetSpotMarkers();
+                userSpots.forEach(placeSpotMarker);
+                renderSpots();
+            }
+        }
+
+        function resetSpotMarkers() {
+            spotMarkers.forEach(m => map.removeOverlay(m));
+            spotMarkers = [];
+        }
+
+        function haversine(lng1, lat1, lng2, lat2) {
+            const toRad = (d) => d * Math.PI / 180;
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+            return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function computeOrderMultiStart(spots) {
+            if (spots.length === 0) return [];
+            if (spots.length === 1) return [...spots];
+            
+            let bestOrder = [];
+            let bestTotalDistance = Infinity;
+            let allOptions = [];
+            
+            for (let i = 0; i < spots.length; i++) {
+                const start = spots[i];
+                const unvisited = spots.filter((_, idx) => idx !== i);
+                const ordered = [start];
+                let current = start;
+                let totalDist = 0;
+                
+                while (unvisited.length > 0) {
+                    let nearestIdx = 0;
+                    let minDist = Infinity;
+                    unvisited.forEach((s, idx) => {
+                        const d = haversine(current.lng, current.lat, s.lng, s.lat);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearestIdx = idx;
+                        }
+                    });
+                    totalDist += minDist;
+                    current = unvisited[nearestIdx];
+                    ordered.push(current);
+                    unvisited.splice(nearestIdx, 1);
+                }
+                
+                allOptions.push({
+                    startIndex: i,
+                    startPoint: spots[i],
+                    order: [...ordered],
+                    straightDistance: totalDist,
+                    estimatedTime: totalDist * 3
+                });
+                
+                if (totalDist < bestTotalDistance) {
+                    bestTotalDistance = totalDist;
+                    bestOrder = ordered;
+                }
+            }
+            
+            return { bestOrder, allOptions };
+        }
+
+        function debugOrder(option) {
+            console.log(`起点: ${option.startPoint.name}`);
+            console.log(`访问顺序: ${option.order.map(s => s.name).join(' → ')}`);
+            
+            let totalStraight = 0;
+            for (let i = 0; i < option.order.length - 1; i++) {
+                const from = option.order[i];
+                const to = option.order[i+1];
+                const dist = haversine(from.lng, from.lat, to.lng, to.lat);
+                totalStraight += dist;
+                console.log(`  ${from.name} → ${to.name}: ${dist.toFixed(1)} km`);
+            }
+            console.log(`直线总距离: ${totalStraight.toFixed(1)} km`);
+            console.log(`算法计算距离: ${option.straightDistance.toFixed(1)} km`);
+            console.log('---');
+        }
+
+        function calculateRouteStats(routeResults) {
+            let totalDistance = 0;
+            let totalDuration = 0;
+            
+            if (!routeResults || !Array.isArray(routeResults)) {
+                return { totalDistance: 0, totalDuration: 0 };
+            }
+            
+            routeResults.forEach(result => {
+                if (result && typeof result === 'object') {
+                    totalDistance += result.distance || 0;
+                    totalDuration += result.duration || 0;
+                }
+            });
+            
+            return { totalDistance, totalDuration };
+        }
+
+        async function computeRouteForAnalysis(routeOrder) {
+            const routeResults = [];
+            
+            for (let i = 0; i < routeOrder.length - 1; i++) {
+                const from = routeOrder[i];
+                const to = routeOrder[i + 1];
+                const result = await planTransit(from, to, false);
+                routeResults.push(result);
+            }
+            
+            return routeResults;
+        }
+
+        async function showComparisonTable() {
+            if (allStartOptions.length === 0) {
+                alert("请先计算路线，才能查看分析结果。");
+                return;
+            }
+            
+            const overlay = document.getElementById("messageOverlay");
+            const content = document.getElementById("messageContent");
+            
+            content.innerHTML = `
+                <p style="margin-bottom: 16px; color: var(--muted);">
+                    正在计算所有路线的公交数据，请稍候...
+                </p>
+                <div style="text-align: center; padding: 20px;">
+                    <div style="color: #26c6da; font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                    <div>计算中，这可能需要一些时间...</div>
+                </div>
+            `;
+            overlay.style.display = 'flex';
+            
+            // 计算所有路线的公交数据
+            const allRouteResults = {};
+            
+            for (let i = 0; i < allStartOptions.length; i++) {
+                const option = allStartOptions[i];
+                const routeKey = option.order.map(s => s.id).join('-');
+                
+                if (!actualTransitResults[routeKey]) {
+                    const routeResults = await computeRouteForAnalysis(option.order);
+                    actualTransitResults[routeKey] = routeResults;
+                }
+                
+                allRouteResults[routeKey] = actualTransitResults[routeKey];
+                
+                // 更新进度
+                const progress = Math.round((i + 1) / allStartOptions.length * 100);
+                content.innerHTML = `
+                    <p style="margin-bottom: 16px; color: var(--muted);">
+                        正在计算所有路线的公交数据，请稍候...
+                    </p>
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="color: #26c6da; font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                        <div>已计算 ${i + 1} / ${allStartOptions.length} 条路线 (${progress}%)</div>
+                        <div style="margin-top: 10px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden;">
+                            <div style="height: 100%; background: #26c6da; width: ${progress}%; transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 找出实际总距离最短的路线
+            let minActualDistance = Infinity;
+            let bestRouteIndex = 0;
+            let allRouteStats = [];
+            
+            allStartOptions.forEach((option, index) => {
+                const routeKey = option.order.map(s => s.id).join('-');
+                if (actualTransitResults[routeKey]) {
+                    const stats = calculateRouteStats(actualTransitResults[routeKey]);
+                    allRouteStats.push({ index, stats });
+                    if (stats.totalDistance < minActualDistance) {
+                        minActualDistance = stats.totalDistance;
+                        bestRouteIndex = index;
+                    }
+                }
+            });
+            
+            // 生成表格内容
+            let html = `
+                <p style="margin-bottom: 16px; color: var(--muted);">
+                    下表显示了以每个点作为起点时的路线规划结果。绿色行表示最优路线。
+                </p>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>起点</th>
+                            <th>访问顺序</th>
+                            <th>直线距离</th>
+                            <th>实际距离</th>
+                            <th>实际时间</th>
+                            <th>绕路系数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            allStartOptions.forEach((option, index) => {
+                const routeKey = option.order.map(s => s.id).join('-');
+                const isBest = index === bestRouteIndex;
+                const rowClass = isBest ? 'best-route' : '';
+                const stats = allRouteStats.find(s => s.index === index)?.stats || { totalDistance: 0, totalDuration: 0 };
+                
+                const sequence = option.order.map((spot, idx) => 
+                    `${idx === 0 ? '<strong>' + spot.name + '</strong>' : spot.name}`
+                ).join(' → ');
+                
+                const detourFactor = option.straightDistance > 0 ? 
+                    (stats.totalDistance / option.straightDistance).toFixed(2) : '1.00';
+                const detourColor = stats.totalDistance / option.straightDistance > 1.3 ? '#ff5252' : 
+                                 stats.totalDistance / option.straightDistance > 1.1 ? '#ffb74d' : '#4caf50';
+                
+                html += `
+                    <tr class="${rowClass}">
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span class="start-index">${index + 1}</span>
+                                ${option.startPoint.name}
+                            </div>
+                        </td>
+                        <td>
+                            <div>${sequence}</div>
+                            <div class="route-sequence">${option.order.length} 个点</div>
+                        </td>
+                        <td class="distance-cell">${option.straightDistance.toFixed(1)} km</td>
+                        <td class="distance-cell">${stats.totalDistance.toFixed(1)} km</td>
+                        <td class="time-cell">${Math.round(stats.totalDuration)} 分钟</td>
+                        <td style="color: ${detourColor}; font-weight: 700;">${detourFactor}</td>
+                    </tr>
+                `;
+            });
+            
+            const bestStats = allRouteStats.find(s => s.index === bestRouteIndex)?.stats || { totalDistance: 0, totalDuration: 0 };
+            
+            html += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 20px; padding: 12px; background: rgba(102, 187, 106, 0.1); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background: #66bb6a; border-radius: 2px;"></span>
+                        <strong>最优路线选择：</strong> ${allStartOptions[bestRouteIndex].startPoint.name}
+                    </div>
+                    <div style="color: var(--muted); font-size: 0.9rem;">
+                        实际总距离 ${bestStats.totalDistance.toFixed(1)} km，实际总时间 ${Math.round(bestStats.totalDuration)} 分钟
+                    </div>
+                </div>
+                <div style="margin-top: 12px; padding: 10px; background: rgba(255, 183, 77, 0.1); border-radius: 8px; font-size: 0.9rem; color: var(--muted);">
+                    <div><strong>说明：</strong></div>
+                    <div>1. "直线距离"是算法选择的顺序的直线距离总和</div>
+                    <div>2. "实际距离/时间"是公交查询的实际结果</div>
+                    <div>3. "绕路系数" = 实际距离 ÷ 直线距离（绿色≤1.1，橙色≤1.3，红色>1.3）</div>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+
+        async function computeRoute() {
+            if (userSpots.length === 0) {
+                alert("请先在地图上点击添加至少一个景点。");
+                return;
+            }
+            
+            document.getElementById("statusText").textContent = "正在计算最短路线并规划公交，稍候…";
+            document.getElementById("calcRoute").disabled = true;
+            clearRouteOverlays();
+            
+            const result = computeOrderMultiStart(userSpots);
+            const orderedSpots = result.bestOrder;
+            allStartOptions = result.allOptions;
+            
+            console.log("=== 所有起点方案的访问顺序 ===");
+            allStartOptions.forEach((option, index) => {
+                debugOrder(option);
+            });
+            console.log("=== 调试结束 ===");
+            
+            hasCalculated = true;
+            document.getElementById("showAnalysisBtn").disabled = false;
+            
+            const startPoint = orderedSpots[0];
+
+            const stepsContainer = document.getElementById("routeSteps");
+            stepsContainer.innerHTML = "";
+            let totalDistance = 0;
+            let totalDuration = 0;
+            let segmentCount = 0;
+
+            addStep(`起点：${startPoint.name}`, "这是算法选择的最优起点。");
+
+            let from = { ...startPoint };
+            const bestRouteResults = [];
+            
+            for (let i = 1; i < orderedSpots.length; i++) {
+                const to = orderedSpots[i];
+                const result = await planTransit(from, to, true);
+                segmentCount += 1;
+                totalDistance += result.distance;
+                totalDuration += result.duration;
+                bestRouteResults.push(result);
+                drawPlan(result.plan, segmentCount);
+                addStep(`${segmentCount}. 前往 ${to.name}`, result.text);
+                from = to;
+            }
+            
+            const bestRouteKey = orderedSpots.map(s => s.id).join('-');
+            actualTransitResults[bestRouteKey] = bestRouteResults;
+            
+            document.getElementById("statDistance").textContent = `${totalDistance.toFixed(1)} km`;
+            document.getElementById("statTime").textContent = `${Math.round(totalDuration)} min`;
+            document.getElementById("statLegs").textContent = `${segmentCount} 段`;
+            
+            document.getElementById("statusText").textContent = `计算完成！从"${startPoint.name}"出发，路线已展示在地图上。点击"查看起点分析比较"可查看详细分析。`;
+            document.getElementById("calcRoute").disabled = false;
+        }
+
+        function addStep(title, detail) {
+            const stepsContainer = document.getElementById("routeSteps");
+            const div = document.createElement("div");
+            div.className = "step";
+            div.innerHTML = `<div class="step-title">${title}</div><div class="step-detail">${detail}</div>`;
+            stepsContainer.appendChild(div);
+        }
+
+        async function planTransit(from, to, cacheResult = false) {
+            const cacheKey = `${from.id}-${to.id}`;
+            
+            if (cacheResult && distanceCache[cacheKey]) {
+                console.log(`使用缓存距离: ${from.name} → ${to.name}: ${distanceCache[cacheKey].distance.toFixed(1)} km`);
+                return distanceCache[cacheKey];
+            }
+            
+            const fromPoint = new BMap.Point(from.lng, from.lat);
+            const toPoint = new BMap.Point(to.lng, to.lat);
+            
+            return new Promise((resolve) => {
+                const transit = new BMap.TransitRoute(startCity, {
+                    policy: BMAP_TRANSIT_POLICY_LEAST_TIME,
+                    intercityPolicy: BMAP_INTERCITY_POLICY_EARLY_START,
+                    transitTypePolicy: BMAP_TRANSIT_POLICY_FIRST_SUBWAYS
+                });
+                
+                transit.setSearchCompleteCallback((res) => {
+                    if (transit.getStatus() === BMAP_STATUS_SUCCESS) {
+                        const plan = res.getPlan(0);
+                        const distMeter = plan && plan.getDistance ? plan.getDistance(false) : 0;
+                        const durationSec = plan && plan.getDuration ? plan.getDuration(false) : 0;
+                        const text = buildPlanDescription(plan, from.name, to.name);
+                        
+                        const distance = distMeter ? distMeter / 1000 : haversine(from.lng, from.lat, to.lng, to.lat);
+                        const duration = durationSec ? durationSec / 60 : 15;
+                        
+                        console.log(`公交查询: ${from.name} → ${to.name}`);
+                        console.log(`  直线距离: ${haversine(from.lng, from.lat, to.lng, to.lat).toFixed(1)} km`);
+                        console.log(`  公交距离: ${distance.toFixed(1)} km`);
+                        console.log(`  公交时间: ${duration.toFixed(0)} 分钟`);
+                        
+                        const result = {
+                            plan,
+                            distance,
+                            duration,
+                            text
+                        };
+                        
+                        if (cacheResult) {
+                            distanceCache[cacheKey] = result;
+                        }
+                        
+                        resolve(result);
+                    } else {
+                        console.log(`公交查询失败: ${from.name} → ${to.name}`);
+                        console.log(`  使用直线距离: ${haversine(from.lng, from.lat, to.lng, to.lat).toFixed(1)} km`);
+                        
+                        const distance = haversine(from.lng, from.lat, to.lng, to.lat);
+                        const result = {
+                            plan: null,
+                            distance,
+                            duration: 20,
+                            text: "未能获取公交方案，按直线距离估算，可尝试放大地图或调整位置。"
+                        };
+                        
+                        if (cacheResult) {
+                            distanceCache[cacheKey] = result;
+                        }
+                        
+                        resolve(result);
+                    }
+                });
+                
+                transit.search(fromPoint, toPoint);
+            });
+        }
+
+        function buildPlanDescription(plan, fromName, toName) {
+            if (!plan) return `${fromName} → ${toName}，暂未获取公交方案。`;
+            let parts = [];
+            if (plan.getNumRoutes && plan.getNumRoutes() > 0) {
+                for (let i = 0; i < plan.getNumRoutes(); i++) {
+                    const route = plan.getRoute(i);
+                    if (route && route.getDescription) {
+                        parts.push(route.getDescription(false));
+                    }
+                }
+            }
+            if (plan.getNumLines && plan.getNumLines() > 0) {
+                for (let i = 0; i < plan.getNumLines(); i++) {
+                    const line = plan.getLine(i);
+                    const title = line && line.getTitle ? line.getTitle() : "公交/地铁";
+                    parts.push(`乘坐 ${title}`);
+                }
+            }
+            const summary = parts.length ? parts.join(" → ") : `${fromName} → ${toName} 线路已规划`;
+            return summary;
+        }
+
+        function drawPlan(plan, idx) {
+            if (!plan) return;
+            const overlays = [];
+            
+            const pathColors = ["#FF5252", "#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#00BCD4"];
+            const transitColor = pathColors[(idx - 1) % pathColors.length];
+
+            if (plan.getNumRoutes) {
+                for (let i = 0; i < plan.getNumRoutes(); i++) {
+                    const route = plan.getRoute(i);
+                    if (route && route.getPath) {
+                        const poly = new BMap.Polyline(route.getPath(), {
+                            strokeColor: "#666666",
+                            strokeWeight: 4,
+                            strokeOpacity: 0.8,
+                            strokeStyle: "dashed"
+                        });
+                        map.addOverlay(poly);
+                        overlays.push(poly);
+                    }
+                }
+            }
+
+            if (plan.getNumLines) {
+                for (let i = 0; i < plan.getNumLines(); i++) {
+                    const line = plan.getLine(i);
+                    if (line && line.getPath) {
+                        const poly = new BMap.Polyline(line.getPath(), {
+                            strokeColor: transitColor,
+                            strokeWeight: 8,
+                            strokeOpacity: 1.0,
+                            strokeStyle: "solid"
+                        });
+                        map.addOverlay(poly);
+                        overlays.push(poly);
+                    }
+                }
+            }
+            routeOverlays.push(...overlays);
+        }
+
+        function clearRouteOverlays() {
+            routeOverlays.forEach(o => map.removeOverlay(o));
+            routeOverlays = [];
+        }
+
+        function clearAll() {
+            userSpots = [];
+            spotCounter = 1;
+            hasCalculated = false;
+            allStartOptions = [];
+            actualTransitResults = {};
+            distanceCache = {};
+            resetSpotMarkers();
+            clearRouteOverlays();
+            renderSpots();
+            document.getElementById("routeSteps").innerHTML = `
+                <div class="step">
+                    <div class="step-title">等待规划</div>
+                    <div class="step-detail">添加景点后点击计算，即可生成公交路线。</div>
+                </div>`;
+            document.getElementById("statDistance").textContent = "0 km";
+            document.getElementById("statTime").textContent = "0 min";
+            document.getElementById("statLegs").textContent = "0 段";
+            document.getElementById("statusText").textContent = "数据已清空，点击地图添加景点，右键点击列表中的景点可修改名称。";
+            document.getElementById("showAnalysisBtn").disabled = true;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initMap();
+            document.getElementById("calcRoute").addEventListener("click", computeRoute);
+            document.getElementById("clearAll").addEventListener("click", clearAll);
+            
+            document.getElementById("showAnalysisBtn").addEventListener("click", showComparisonTable);
+            
+            document.getElementById("messageClose").addEventListener("click", () => {
+                document.getElementById("messageOverlay").style.display = 'none';
+            });
+            
+            document.getElementById("messageOverlay").addEventListener("click", (e) => {
+                if (e.target === document.getElementById("messageOverlay")) {
+                    document.getElementById("messageOverlay").style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
