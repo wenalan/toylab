@@ -1,4 +1,4 @@
-index_v3.html
+index_v2.html
 
 使用真实AK替换html文件中的YOUR_BAIDU_MAP_AK
 
